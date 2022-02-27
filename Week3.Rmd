@@ -1,0 +1,103 @@
+---
+title: "Week 3 Assingment - NYPD Shooting Incident Data"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+#### Importing tidyverse and lubridate libraries.
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+# Step 1: Importing Data
+#### Importing csv file from data.cityofnewyork.us
+```{r}
+df <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+head(df)
+```
+# Step 2: Tidy and Transform Data
+#### Since I don't think a lot of the columns are relevant, I will only choose "OCCUR_DATE", "OCCUR_TIME", "BORO", "STATISTICAL_MURDER_FLAG", "PERP_AGE_GROUP", "PERP_SEX", "PERP_RACE", "VIC_AGE_GROUP", "VIC_SEX",and "VIC_RACE". 
+```{r}
+df_new <- df %>% select(OCCUR_DATE, OCCUR_TIME, BORO, STATISTICAL_MURDER_FLAG, PERP_AGE_GROUP, PERP_SEX, PERP_RACE, VIC_AGE_GROUP, VIC_SEX, VIC_RACE)
+head(df_new)
+```
+#### There are numbers of missing perpetrator information in this dataset, maybe due to the fact that the perpetrator was never caught, or it's under active investigation, so I will change the blank spaces to unknown to match rest of the dataset. I will also update time and dates to a more readable format for easy analysis.
+#### While doing analysis of this dataset, I found that there are strange numbers in the PERP_AGE column, so I will also replace these numbers with "UNKNOWN". I will also change true and false to 1 and 0 respectively to make it easier for modeling.
+```{r}
+df_new[df_new == ''] <- NA
+df_new <- replace_na(df_new, list(PERP_AGE_GROUP = "UNKNOWN", PERP_SEX = "U", PERP_RACE = "UNKNOWN"))
+df_new$OCCUR_DATE<-mdy(df_new$OCCUR_DATE)
+df_new$OCCUR_DATE<-wday(df_new$OCCUR_DATE, label=TRUE, abbr=FALSE)
+df_new$OCCUR_TIME<-hour(hms(df_new$OCCUR_TIME))
+df_new[df_new == 1020] <- "UNKNOWN"
+df_new[df_new == 224] <- "UNKNOWN"
+df_new[df_new == 940] <- "UNKNOWN"
+df_new[df_new == "true"] <- "1"
+df_new[df_new == "false"] <- "0"
+head(df_new)
+```
+
+# Step 3: Visulizing Data
+
+We will now plot the amount of shootings by all the boroughs of NYC.
+
+```{r}
+ggplot(df_new, aes(BORO))+geom_bar()+labs(title="Incidents by Boroughs", x="Boroughs",y="Numbers of Incidents")
+table(df_new$BORO)
+```
+
+#### For this dataset, let's find out the following:
+#### 1. Which Borough have the highest shootings?
+#### 1. What race is more likely to be shooter and which race is more likely to be victim? 
+#### 2. What age group is more likely to be part of these shootings?
+#### 3. Which sex is more likely to be part of these shootings?
+
+#### We can see that Brooklyn has the most amount of shooting incidents followed by Bronx. Based on this graph, let's find out how many of these shootings are results in murder.
+```{r}
+table(df_new$BORO, df_new$STATISTICAL_MURDER_FLAG)
+```
+
+```{r}
+r=table(df_new$PERP_RACE, df_new$VIC_RACE)
+barplot(as.matrix(r), col = rainbow(7), las=2)
+legend("topright",legend = rownames(r), fill = 1:7, ncol = 2,cex = 0.35)
+a=table(df_new$PERP_AGE_GROUP, df_new$VIC_AGE_GROUP)
+barplot(as.matrix(a), col = rainbow(6))
+legend("topright",legend = rownames(a), fill = 1:6, ncol = 2,cex = 0.35)
+s=table(df_new$PERP_SEX, df_new$VIC_SEX)
+barplot(as.matrix(s), col = rainbow(3))
+legend("topright",legend = rownames(s), fill = 1:3, ncol = 2,cex = 0.35)
+```
+
+#### We can see from the graphs that black men tend to be perpetrators and black/black hispanic men tend to be victims. 
+
+# Step 4: Modeling Data
+
+#### We will now build a model using logistic regression to predict if the incident will result in murder.
+
+```{r}
+df_new$STATISTICAL_MURDER_FLAG<-as.numeric(df_new$STATISTICAL_MURDER_FLAG)
+mod <- glm(STATISTICAL_MURDER_FLAG~OCCUR_DATE+PERP_AGE_GROUP+PERP_SEX+PERP_RACE, data=df_new, family="binomial")
+summary(mod)
+```
+
+#Biases and Pitfalls 
+
+#### Biases and pitfalls would be assuming a certain borough would have more crime than others, or certain race/age group would commit more crimes than other race/age groups. Such as one would assume Brox will have more crimes and shootings due to media exposure, but Brooklyn actually has more shootings.
+#### So maybe have an open mind and neutral mindset before starting any analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
